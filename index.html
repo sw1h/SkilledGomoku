@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>技能五子棋</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              board: '#F3DAB7',
+              'board-dark': '#DEB887',
+              primary: '#8B5CF6', // Purple-500
+              secondary: '#EC4899', // Pink-500
+              skillRed: '#FECACA', // Red-200
+              skillBlue: '#BFDBFE', // Blue-200
+              skillYellow: '#FDE68A', // Amber-200
+              skillGreen: '#A7F3D0', // Emerald-200
+              skillPurple: '#E9D5FF', // Violet-200
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'sand-blow': 'sand-scatter 0.8s ease-out forwards',
+              'water-ripple': 'ripple 1s ease-out forwards',
+              'shake-board': 'shake 0.8s cubic-bezier(.36,.07,.19,.97) both',
+              'flash-move': 'flash 0.5s ease-in-out',
+            },
+            keyframes: {
+              'sand-scatter': {
+                '0%': { transform: 'scale(0.5)', opacity: '1' },
+                '50%': { transform: 'scale(1.5)', opacity: '0.8' },
+                '100%': { transform: 'scale(2.5)', opacity: '0' },
+              },
+              'ripple': {
+                '0%': { transform: 'scale(0.8)', opacity: '0.6', borderWidth: '10px' },
+                '100%': { transform: 'scale(2)', opacity: '0', borderWidth: '0px' },
+              },
+              'shake': {
+                '10%, 90%': { transform: 'translate3d(-2px, 0, 0)' },
+                '20%, 80%': { transform: 'translate3d(4px, 0, 0)' },
+                '30%, 50%, 70%': { transform: 'translate3d(-8px, 0, 0)' },
+                '40%, 60%': { transform: 'translate3d(8px, 0, 0)' }
+              },
+              'flash': {
+                 '0%, 100%': { opacity: '1' },
+                 '50%': { opacity: '0.3', transform: 'scale(1.2)' }
+              }
+            }
+          },
+        },
+      };
+    </script>
+    <style>
+      /* Custom scrollbar for aesthetics */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #c0c0c0;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-slate-50">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
