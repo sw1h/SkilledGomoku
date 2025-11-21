@@ -615,37 +615,53 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-4 font-sans text-slate-800 relative overflow-hidden">
       
-      {/* Audio Controls - Fixed Top Right */}
-      <div className="absolute top-4 right-4 z-50 flex flex-col items-center gap-2 bg-white/80 backdrop-blur p-2 rounded-full shadow border border-slate-200">
-          <button 
+      {/* 增强的音频控制 - 固定右上角 */}
+      <div className="absolute top-4 right-4 z-50 flex flex-col items-center bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-md border border-indigo-100">
+          {/* 显式的音频播放按钮 */}
+          <button
+            onClick={() => {
+              handleUserInteraction(); // 直接触发音频播放
+            }}
+            className="p-3 rounded-full bg-indigo-100 hover:bg-indigo-200 transition-colors mb-2"
+            title="点击播放背景音乐"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+          
+          {/* 静音切换按钮 */}
+          <button
             onClick={() => {
               setIsMuted(!isMuted);
-              // 点击静音按钮时也触发用户交互，帮助播放音频
-              if (!isMuted && audioRef.current) {
-                handleUserInteraction();
-              }
-            }} 
-            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-600"
-            title={isMuted ? "Unmute" : "Mute"}
+              handleUserInteraction(); // 触发用户交互以帮助播放音频
+            }}
+            className="p-2 rounded-full hover:bg-slate-100 text-slate-600"
+            title={isMuted ? "开启音乐" : "静音"}
           >
               {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
           </button>
+          
+          {/* 音量控制 */}
           {!isMuted && (
              <input 
                type="range" 
                min="0" max="1" step="0.1" 
                value={volume} 
                onChange={(e) => setVolume(parseFloat(e.target.value))}
-               className="w-20 accent-indigo-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+               className="w-20 accent-indigo-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-1"
              />
           )}
+          
           {/* 音频状态指示器 */}
-          <div className="text-[10px] text-slate-500 whitespace-nowrap">
-            {audioLoaded ? (
-              <span>🎵 音乐已加载</span>
-            ) : (
-              <span>🎵 音乐加载中...</span>
-            )}
+          <div className="text-sm mt-1 text-gray-600 font-medium">
+            {audioLoaded ? "🎵 音乐已加载" : "⏳ 音乐加载中..."}
+          </div>
+          
+          {/* 音频提示文本 */}
+          <div className="text-xs mt-1 text-gray-500 text-center max-w-[120px]">
+            点击音乐图标开始播放
           </div>
       </div>
 

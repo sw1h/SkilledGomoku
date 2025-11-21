@@ -18,6 +18,20 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      // 确保构建时正确处理静态资源路径
+      build: {
+        outDir: 'dist',
+        assetsDir: '',
+        emptyOutDir: true,
+        // 处理GitHub Pages的基础路径
+        base: '/SkilledGomoku/'
+      },
+      // 配置媒体文件处理
+      optimizeDeps: {
+        esbuildOptions: {
+          resolveExtensions: ['.js', '.ts', '.jsx', '.tsx', '.mp3', '.wav', '.ogg']
+        }
       }
     };
 });
