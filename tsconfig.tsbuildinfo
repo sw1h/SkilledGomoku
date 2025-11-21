@@ -1,1 +1,1 @@
-{"root":["./app.tsx","./constants.ts","./index.tsx","./types.ts","./vite.config.ts","./components/board.tsx","./components/skillpanel.tsx","./utils/logic.ts"],"version":"5.8.3"}
+{"root":["./app.tsx","./constants.ts","./index.tsx","./types.ts","./vite.config.ts","./components/board.tsx","./components/skillpanel.tsx","./dist/assets/index-v3aqymtm.js","./utils/logic.ts"],"version":"5.8.3"}
