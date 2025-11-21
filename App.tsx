@@ -137,25 +137,56 @@ const App: React.FC = () => {
     const initAudio = async () => {
       if (!audioRef.current) {
         try {
-          // 使用导入的音频文件，确保路径正确
+          console.log('初始化音频，使用导入的音频文件:', bgmFile);
+          
+          // 策略1: 首先尝试使用导入的音频文件
           const audioInstance = new Audio(bgmFile);
           audioInstance.loop = true;
           audioInstance.preload = 'auto';
           
-          // 添加事件监听器
+          // 添加详细的事件监听器
           audioInstance.addEventListener('canplaythrough', () => {
             console.log('音频加载完成，准备播放');
             setAudioLoaded(true);
           });
           
+          audioInstance.addEventListener('loadeddata', () => {
+            console.log('音频数据已加载');
+          });
+          
+          audioInstance.addEventListener('loadstart', () => {
+            console.log('开始加载音频文件');
+          });
+          
           audioInstance.addEventListener('error', (e) => {
-            console.error('音频加载错误:', e);
+            const target = e.target as HTMLAudioElement;
+            console.error('音频加载错误:', target.error?.code, target.error?.message);
             setAudioLoaded(false);
-            audioError(new Error('音频加载失败'));
+            console.warn('尝试使用备用路径...');
+            
+            // 策略2: 如果导入的文件失败，尝试直接使用构建后的文件名
+            // 这是一种回退机制，确保在不同环境下都能工作
+            try {
+              const fallbackAudio = new Audio('/SkilledGomoku/bgm-BPRa5Vvz.mp3');
+              fallbackAudio.loop = true;
+              fallbackAudio.preload = 'auto';
+              fallbackAudio.addEventListener('canplaythrough', () => {
+                console.log('备用音频加载成功');
+                audioRef.current = fallbackAudio;
+                setAudioLoaded(true);
+              });
+              fallbackAudio.addEventListener('error', () => {
+                console.error('备用音频也加载失败');
+                audioError(new Error('所有音频加载路径都失败了'));
+              });
+            } catch (fallbackError) {
+              console.error('备用音频创建失败:', fallbackError);
+              audioError(fallbackError as Error);
+            }
           });
           
           audioRef.current = audioInstance;
-          console.log('音频对象创建成功，文件路径:', bgmFile);
+          console.log('音频对象创建成功');
         } catch (error) {
           console.error('创建音频对象失败:', error);
           audioError(error as Error);
@@ -171,7 +202,7 @@ const App: React.FC = () => {
       audioRef.current.muted = isMuted;
       
       // 如果是从游戏页面退出到主页面，重置播放位置
-      if (view === 'HOME') {
+      if (view === 'HOME' && audioRef.current.currentTime > 0) {
         audioRef.current.currentTime = 0;
       }
       
@@ -187,7 +218,10 @@ const App: React.FC = () => {
         audioRef.current.pause();
         // 移除事件监听器
         audioRef.current.removeEventListener('canplaythrough', () => {});
+        audioRef.current.removeEventListener('loadeddata', () => {});
+        audioRef.current.removeEventListener('loadstart', () => {});
         audioRef.current.removeEventListener('error', () => {});
+        audioRef.current = null;
       }
     };
   }, [volume, isMuted, view]);
@@ -216,7 +250,10 @@ const App: React.FC = () => {
       
     // 添加用户交互触发的音频播放函数 - 增强版本
     const handleUserInteraction = async () => {
-      if (!audioRef.current || isMuted) return;
+      if (!audioRef.current || isMuted) {
+        console.log('音频播放跳过: 未初始化或已静音');
+        return;
+      }
       
       try {
         console.log('用户交互触发音频播放尝试');
@@ -227,9 +264,15 @@ const App: React.FC = () => {
           if (audioRef.current.paused) {
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
-              await playPromise;
-              console.log('音频通过用户交互成功播放');
-              setAudioLoaded(true);
+              try {
+                await playPromise;
+                console.log('音频通过用户交互成功播放');
+                setAudioLoaded(true);
+              } catch (playError) {
+                console.error('播放Promise被拒绝:', playError);
+                // 尝试使用备用播放策略
+                handlePlayFallback();
+              }
             }
           } else {
             console.log('音频已经在播放中');
@@ -240,24 +283,129 @@ const App: React.FC = () => {
           const playWhenReady = () => {
             audioRef.current?.play().catch(err => {
               console.error('音频准备好后播放失败:', err);
+              // 尝试备用策略
+              handlePlayFallback();
             });
             audioRef.current?.removeEventListener('canplay', playWhenReady);
           };
-          audioRef.current.addEventListener('canplay', playWhenReady);
+          audioRef.current.addEventListener('canplay', playWhenReady, { once: true });
+          
+          // 设置超时，以防音频加载超时
+          setTimeout(() => {
+            if (audioRef.current && audioRef.current.readyState < 2) {
+              console.warn('音频加载超时，尝试备用策略');
+              audioRef.current.removeEventListener('canplay', playWhenReady);
+              handlePlayFallback();
+            }
+          }, 5000); // 5秒超时
         }
       } catch (error) {
         console.error('用户交互后播放音频失败:', error);
-        // 尝试重置并重新播放
-        try {
-          audioRef.current.currentTime = 0;
-          await audioRef.current.play();
-          console.log('重置后音频播放成功');
-          setAudioLoaded(true);
-        } catch (retryError) {
-          console.error('重置后播放仍然失败:', retryError);
-        }
+        handlePlayFallback();
       }
     };
+    
+    // 音频播放失败时的备用处理函数
+    const handlePlayFallback = () => {
+      console.log('执行音频播放备用策略');
+      try {
+        // 策略1: 尝试完全重置音频对象
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          
+          // 延迟一小段时间后重试
+          setTimeout(() => {
+            if (audioRef.current) {
+              audioRef.current.play().catch(err => {
+                console.error('重置后播放仍失败:', err);
+                // 策略2: 尝试使用新的音频对象和备用路径
+                tryNewAudioInstance();
+              });
+            }
+          }, 100);
+        } else {
+          // 如果没有音频实例，尝试创建新的
+          tryNewAudioInstance();
+        }
+      } catch (fallbackError) {
+        console.error('备用播放策略失败:', fallbackError);
+        // 静默失败，不影响应用其他功能
+        setAudioLoaded(false);
+      }
+    };
+    
+    // 尝试创建新的音频实例
+    const tryNewAudioInstance = () => {
+      try {
+        console.log('尝试创建新的音频实例');
+        // 尝试使用导入的文件
+        const newAudio = new Audio(bgmFile);
+        newAudio.loop = true;
+        newAudio.volume = volume;
+        newAudio.muted = isMuted;
+        
+        newAudio.addEventListener('canplaythrough', () => {
+          console.log('新音频实例加载成功');
+          audioRef.current = newAudio;
+          setAudioLoaded(true);
+          
+          // 尝试播放新实例
+          newAudio.play().catch(err => {
+            console.error('新实例播放失败:', err);
+          });
+        });
+        
+        newAudio.addEventListener('error', () => {
+          console.error('新音频实例加载失败');
+          // 尝试备用路径
+          tryFallbackPath();
+        });
+      } catch (error) {
+        console.error('创建新音频实例失败:', error);
+        tryFallbackPath();
+      }
+    };
+    
+    // 尝试使用备用路径
+    const tryFallbackPath = async () => {
+      try {
+        console.log('尝试使用备用音频路径');
+        // 使用固定路径作为最后手段
+        const fallbackAudio = new Audio('/SkilledGomoku/bgm-BPRa5Vvz.mp3');
+        fallbackAudio.loop = true;
+        fallbackAudio.volume = volume;
+        fallbackAudio.muted = isMuted;
+        
+        fallbackAudio.addEventListener('canplaythrough', () => {
+          console.log('备用路径加载成功');
+          audioRef.current = fallbackAudio;
+          setAudioLoaded(true);
+          
+          fallbackAudio.play().catch(err => {
+            console.error('备用路径播放失败:', err);
+          });
+        });
+        
+        fallbackAudio.addEventListener('error', () => {
+          console.error('备用路径也加载失败');
+          setAudioLoaded(false);
+          // 此时放弃，但不影响应用其他功能
+        });
+      } catch (error) {
+        console.error('备用路径尝试失败:', error);
+        setAudioLoaded(false);
+      }
+    
+    try {
+      await audioRef.current.play();
+      console.log('重置后音频播放成功');
+      setAudioLoaded(true);
+    } catch (retryError) {
+      console.error('重置后播放仍然失败:', retryError);
+    }
+  }
+  
     
     // 在组件挂载时添加全局事件监听器 - 更多交互类型
     useEffect(() => {
