@@ -15,6 +15,12 @@ import { SKILLS, INITIAL_SKILL_COUNTS } from './constants';
 // 使用import导入音频文件，确保构建时正确处理
 import bgmFile from './bgm.mp3';
 
+// Add error boundary for audio loading
+const audioError = (error: Error) => {
+  console.error('Audio loading error:', error);
+  alert('背景音乐加载失败，请刷新页面重试。');
+};
+
 // Icons
 const PlayIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const UserIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
@@ -127,55 +133,117 @@ const App: React.FC = () => {
   
   // --- Audio Effect ---
   useEffect(() => {
-    if (!audioRef.current) {
+    // 创建音频对象
+    const initAudio = async () => {
+      if (!audioRef.current) {
         try {
           // 使用导入的音频文件，确保路径正确
-          audioRef.current = new Audio(bgmFile);
-          audioRef.current.loop = true;
-          console.log('音频对象创建成功，使用导入的音频文件');
+          const audioInstance = new Audio(bgmFile);
+          audioInstance.loop = true;
+          audioInstance.preload = 'auto';
           
-          // 预加载音频
-          audioRef.current.preload = 'auto';
+          // 添加事件监听器
+          audioInstance.addEventListener('canplaythrough', () => {
+            console.log('音频加载完成，准备播放');
+            setAudioLoaded(true);
+          });
+          
+          audioInstance.addEventListener('error', (e) => {
+            console.error('音频加载错误:', e);
+            setAudioLoaded(false);
+            audioError(new Error('音频加载失败'));
+          });
+          
+          audioRef.current = audioInstance;
+          console.log('音频对象创建成功，文件路径:', bgmFile);
         } catch (error) {
           console.error('创建音频对象失败:', error);
+          audioError(error as Error);
         }
       }
-
+    };
+    
+    initAudio();
+    
+    // 设置音量和静音状态
     if (audioRef.current) {
       audioRef.current.volume = volume;
       audioRef.current.muted = isMuted;
       
-      // 让背景音乐在主页面('HOME')和游戏页面('GAME')都准备好，但不自动播放
-        if ((view === 'HOME' || view === 'GAME') && !isMuted) {
-          // 如果是从游戏页面退出到主页面，重置播放位置
-          if (view === 'HOME') {
-            audioRef.current.currentTime = 0;
-          }
-          
-          // 尝试播放，但处理可能的自动播放限制
-          audioRef.current.play().catch(e => {
-            console.log("自动播放受限，等待用户交互后播放:", e);
-            // 音频将在用户交互后播放
-          });
-        } else {
+      // 如果是从游戏页面退出到主页面，重置播放位置
+      if (view === 'HOME') {
+        audioRef.current.currentTime = 0;
+      }
+      
+      // 不自动尝试播放，只在用户交互时播放
+      if (isMuted) {
         audioRef.current.pause();
       }
     }
-  }, [view, isMuted, volume]);
     
+    // 清理函数
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        // 移除事件监听器
+        audioRef.current.removeEventListener('canplaythrough', () => {});
+        audioRef.current.removeEventListener('error', () => {});
+      }
+    };
+  }, [volume, isMuted, view]);
+  
+  // 添加更全面的用户交互监听器
+  useEffect(() => {
+    const handleInteraction = () => {
+      console.log('捕获到全局用户交互事件');
+      handleUserInteraction();
+    };
+    
+    // 添加多种用户交互事件监听器
+    document.addEventListener('click', handleInteraction, { once: true });
+    document.addEventListener('keydown', handleInteraction, { once: true });
+    document.addEventListener('touchstart', handleInteraction, { once: true });
+    document.addEventListener('mousedown', handleInteraction, { once: true });
+    
+    // 清理函数
+    return () => {
+      document.removeEventListener('click', handleInteraction);
+      document.removeEventListener('keydown', handleInteraction);
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('mousedown', handleInteraction);
+    };
+  }, [isMuted]); // 当静音状态改变时重新设置监听器
+      
     // 添加用户交互触发的音频播放函数 - 增强版本
     const handleUserInteraction = async () => {
       if (!audioRef.current || isMuted) return;
       
       try {
-        // 确保暂停状态再播放
-        if (audioRef.current.paused) {
-          const playPromise = audioRef.current.play();
-          if (playPromise !== undefined) {
-            await playPromise;
-            console.log('音频通过用户交互成功播放');
-            setAudioLoaded(true);
+        console.log('用户交互触发音频播放尝试');
+        
+        // 确保音频已加载足够数据可以播放
+        if (audioRef.current.readyState >= 2) {
+          // 确保暂停状态再播放
+          if (audioRef.current.paused) {
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+              await playPromise;
+              console.log('音频通过用户交互成功播放');
+              setAudioLoaded(true);
+            }
+          } else {
+            console.log('音频已经在播放中');
           }
+        } else {
+          console.log('音频尚未准备好播放，等待加载...');
+          // 注册一次性事件监听器，当音频可播放时尝试播放
+          const playWhenReady = () => {
+            audioRef.current?.play().catch(err => {
+              console.error('音频准备好后播放失败:', err);
+            });
+            audioRef.current?.removeEventListener('canplay', playWhenReady);
+          };
+          audioRef.current.addEventListener('canplay', playWhenReady);
         }
       } catch (error) {
         console.error('用户交互后播放音频失败:', error);
