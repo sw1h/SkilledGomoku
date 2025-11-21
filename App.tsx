@@ -12,6 +12,8 @@ import {
 } from './types';
 import { createEmptyBoard, checkWin, getBestMove, shouldAIUseSkill } from './utils/logic';
 import { SKILLS, INITIAL_SKILL_COUNTS } from './constants';
+// 使用import导入音频文件，确保构建时正确处理
+import bgmFile from './bgm.mp3';
 
 // Icons
 const PlayIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
@@ -120,66 +122,132 @@ const App: React.FC = () => {
     resetGameLogic(mode, difficulty);
   };
 
+  // 音频加载状态
+  const [audioLoaded, setAudioLoaded] = useState(false);
+  
   // --- Audio Effect ---
   useEffect(() => {
-    // 处理GitHub Pages环境下的路径问题
-    // 使用import.meta.url获取正确的基础路径
-    const getBgmPath = () => {
-      // 优先尝试直接路径
-      return 'bgm.mp3';
-    };
-
     if (!audioRef.current) {
-      try {
-        audioRef.current = new Audio(getBgmPath());
-        audioRef.current.loop = true;
-        console.log('音频对象创建成功，路径:', getBgmPath());
-      } catch (error) {
-        console.error('创建音频对象失败:', error);
+        try {
+          // 使用导入的音频文件，确保路径正确
+          audioRef.current = new Audio(bgmFile);
+          audioRef.current.loop = true;
+          console.log('音频对象创建成功，使用导入的音频文件');
+          
+          // 预加载音频
+          audioRef.current.preload = 'auto';
+        } catch (error) {
+          console.error('创建音频对象失败:', error);
+        }
       }
-    }
 
     if (audioRef.current) {
       audioRef.current.volume = volume;
       audioRef.current.muted = isMuted;
       
       // 让背景音乐在主页面('HOME')和游戏页面('GAME')都准备好，但不自动播放
-      if ((view === 'HOME' || view === 'GAME') && !isMuted) {
-        // 如果是从游戏页面退出到主页面，重置播放位置
-        if (view === 'HOME') {
-          audioRef.current.currentTime = 0;
-        }
-        
-        // 尝试播放，但处理可能的自动播放限制
-        audioRef.current.play().catch(e => {
-          console.log("自动播放受限，等待用户交互后播放:", e);
-          // 音频将在用户交互后播放
-        });
-      } else {
+        if ((view === 'HOME' || view === 'GAME') && !isMuted) {
+          // 如果是从游戏页面退出到主页面，重置播放位置
+          if (view === 'HOME') {
+            audioRef.current.currentTime = 0;
+          }
+          
+          // 尝试播放，但处理可能的自动播放限制
+          audioRef.current.play().catch(e => {
+            console.log("自动播放受限，等待用户交互后播放:", e);
+            // 音频将在用户交互后播放
+          });
+        } else {
         audioRef.current.pause();
       }
     }
   }, [view, isMuted, volume]);
-
-  // 添加用户交互触发的音频播放函数
-  const handleUserInteraction = () => {
-    if (audioRef.current && !isMuted) {
-      audioRef.current.play().catch(e => {
-        console.log("用户交互后播放音频失败:", e);
-      });
-    }
-  };
-
-  // 在组件挂载时添加全局点击事件监听
-  useEffect(() => {
-    document.addEventListener('click', handleUserInteraction);
-    document.addEventListener('touchstart', handleUserInteraction);
     
-    return () => {
-      document.removeEventListener('click', handleUserInteraction);
-      document.removeEventListener('touchstart', handleUserInteraction);
+    // 添加用户交互触发的音频播放函数 - 增强版本
+    const handleUserInteraction = async () => {
+      if (!audioRef.current || isMuted) return;
+      
+      try {
+        // 确保暂停状态再播放
+        if (audioRef.current.paused) {
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('音频通过用户交互成功播放');
+            setAudioLoaded(true);
+          }
+        }
+      } catch (error) {
+        console.error('用户交互后播放音频失败:', error);
+        // 尝试重置并重新播放
+        try {
+          audioRef.current.currentTime = 0;
+          await audioRef.current.play();
+          console.log('重置后音频播放成功');
+          setAudioLoaded(true);
+        } catch (retryError) {
+          console.error('重置后播放仍然失败:', retryError);
+        }
+      }
     };
-  }, [isMuted]);
+    
+    // 在组件挂载时添加全局事件监听器 - 更多交互类型
+    useEffect(() => {
+      // 添加更多交互类型以提高触发概率
+      const interactionEvents = ['click', 'touchstart', 'keydown', 'mousedown'];
+      
+      interactionEvents.forEach(event => {
+        document.addEventListener(event, handleUserInteraction);
+      });
+      
+      // 组件卸载时清理事件监听器
+      return () => {
+        interactionEvents.forEach(event => {
+          document.removeEventListener(event, handleUserInteraction);
+        });
+      };
+    }, [isMuted]);
+    
+    // 监听音频加载完成事件
+    useEffect(() => {
+      if (audioRef.current) {
+        const handleLoadedMetadata = () => {
+          console.log('音频元数据加载完成');
+          setAudioLoaded(true);
+        };
+        
+        const handleError = (e: Event) => {
+          console.error('音频加载错误:', e);
+          setAudioLoaded(false);
+        };
+        
+        audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
+        audioRef.current.addEventListener('error', handleError);
+        
+        return () => {
+          audioRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          audioRef.current?.removeEventListener('error', handleError);
+        };
+      }
+    }, []);
+    
+    // 页面可见性变化时的处理
+    useEffect(() => {
+      const handleVisibilityChange = () => {
+        if (!document.hidden && audioRef.current && !isMuted && audioLoaded) {
+          // 当页面从不可见变为可见时，尝试恢复播放
+          audioRef.current.play().catch(e => {
+            console.log('页面可见时恢复播放失败，等待用户交互:', e);
+          });
+        }
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }, [isMuted, audioLoaded]);
 
   // --- Effects ---
 
@@ -548,9 +616,15 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-4 font-sans text-slate-800 relative overflow-hidden">
       
       {/* Audio Controls - Fixed Top Right */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-white/80 backdrop-blur p-2 rounded-full shadow border border-slate-200">
+      <div className="absolute top-4 right-4 z-50 flex flex-col items-center gap-2 bg-white/80 backdrop-blur p-2 rounded-full shadow border border-slate-200">
           <button 
-            onClick={() => setIsMuted(!isMuted)} 
+            onClick={() => {
+              setIsMuted(!isMuted);
+              // 点击静音按钮时也触发用户交互，帮助播放音频
+              if (!isMuted && audioRef.current) {
+                handleUserInteraction();
+              }
+            }} 
             className="p-1.5 rounded-full hover:bg-slate-100 text-slate-600"
             title={isMuted ? "Unmute" : "Mute"}
           >
@@ -565,6 +639,14 @@ const App: React.FC = () => {
                className="w-20 accent-indigo-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
              />
           )}
+          {/* 音频状态指示器 */}
+          <div className="text-[10px] text-slate-500 whitespace-nowrap">
+            {audioLoaded ? (
+              <span>🎵 音乐已加载</span>
+            ) : (
+              <span>🎵 音乐加载中...</span>
+            )}
+          </div>
       </div>
 
       {/* Dynamic Toast - Positioned at top, non-blocking */}

@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build --base=/SkilledGomoku",
     "build-only": "vite build --base=/SkilledGomoku",
-    "preview": "vite preview",
-    "deploy": "gh-pages -d dist"
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.2.0",
