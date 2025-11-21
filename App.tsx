@@ -122,28 +122,64 @@ const App: React.FC = () => {
 
   // --- Audio Effect ---
   useEffect(() => {
+    // 处理GitHub Pages环境下的路径问题
+    // 使用import.meta.url获取正确的基础路径
+    const getBgmPath = () => {
+      // 优先尝试直接路径
+      return 'bgm.mp3';
+    };
+
     if (!audioRef.current) {
-      // NOTE: Replace 'bgm.mp3' with the actual relative path to your file if different.
-      audioRef.current = new Audio('bgm.mp3'); 
-      audioRef.current.loop = true;
+      try {
+        audioRef.current = new Audio(getBgmPath());
+        audioRef.current.loop = true;
+        console.log('音频对象创建成功，路径:', getBgmPath());
+      } catch (error) {
+        console.error('创建音频对象失败:', error);
+      }
     }
 
     if (audioRef.current) {
       audioRef.current.volume = volume;
       audioRef.current.muted = isMuted;
       
-      // 让背景音乐在主页面('HOME')和游戏页面('GAME')都播放
+      // 让背景音乐在主页面('HOME')和游戏页面('GAME')都准备好，但不自动播放
       if ((view === 'HOME' || view === 'GAME') && !isMuted) {
         // 如果是从游戏页面退出到主页面，重置播放位置
         if (view === 'HOME') {
           audioRef.current.currentTime = 0;
         }
-        audioRef.current.play().catch(e => console.log("Audio play failed (user interaction required):", e));
+        
+        // 尝试播放，但处理可能的自动播放限制
+        audioRef.current.play().catch(e => {
+          console.log("自动播放受限，等待用户交互后播放:", e);
+          // 音频将在用户交互后播放
+        });
       } else {
         audioRef.current.pause();
       }
     }
   }, [view, isMuted, volume]);
+
+  // 添加用户交互触发的音频播放函数
+  const handleUserInteraction = () => {
+    if (audioRef.current && !isMuted) {
+      audioRef.current.play().catch(e => {
+        console.log("用户交互后播放音频失败:", e);
+      });
+    }
+  };
+
+  // 在组件挂载时添加全局点击事件监听
+  useEffect(() => {
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('touchstart', handleUserInteraction);
+    
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, [isMuted]);
 
   // --- Effects ---
 
